@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 15s
+rule_files:
+  - 'alert.rules'
+alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - "alertmanager:9093"
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: 'node-exporter'
+    dns_sd_configs:
+      - names:
+        - 'tasks.monitoring-stack_node-exporter'
+        type: 'A'
+        port: 9100
+  - job_name: 'cadvisor'
+    dns_sd_configs:
+      - names:
+        - 'tasks.monitoring-stack_cadvisor'
+        type: 'A'
+        port: 8080
+  - job_name: watchtower
+    scrape_interval: 600s
+    metrics_path: /v1/metrics
+    bearer_token: hjdshjdszuzudfdfskjdfsnnfdsdsfzudszufdsfnfdsk
+    static_configs:
+      - targets:
+        - 'watchtower:8080'

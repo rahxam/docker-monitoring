@@ -1,0 +1,218 @@
+services:
+  grafana:
+    image: grafana/grafana:latest
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.stack.network=traefik"  
+
+        - "traefik.http.routers.grafana.rule=Host(`grafana.hartig.es`)"
+        - "traefik.http.routers.grafana.entrypoints=https"
+        - "traefik.http.routers.grafana.tls=true"
+
+        - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+        
+        - "traefik.constraint=proxy-public"
+        # - "traefik.http.routers.grafana.middlewares=authentik@swarm"
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.monitoring == true
+    volumes:
+      - type: volume
+        source: grafana-data
+        target: /var/lib/grafana
+    environment:
+        - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+        - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+        - GF_USERS_ALLOW_SIGN_UP=false
+        - GF_SERVER_ROOT_URL=https://grafana.hartig.es
+        - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+        - GF_AUTH_GENERIC_OAUTH_NAME=authentik
+        - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=MuqD38UqQenWfp9Zz0mDw39HMXVxcPYQvvg49aat
+        - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=qXbQwv9t3CgpjAzylYEpX5GcLt3RKM34QeTRCINIXJ3J3QVbwdxTZk5EyyvD4xSkRa0yCHA8ZJaVrns73hGrXJHwND6qUoFau945IjP0QIzXkVMwvLtVySy7WMQQ0CMX
+        - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
+        - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://authentik.hartig.es/application/o/authorize/
+        - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://authentik.hartig.es/application/o/token/
+        - GF_AUTH_GENERIC_OAUTH_API_URL=https://authentik.hartig.es/application/o/userinfo/
+        - GF_AUTH_SIGNOUT_REDIRECT_URL=https://authentik.hartig.es/application/o/<Slug of the application from above>/end-session/
+        # Optionally enable auto-login (bypasses Grafana login screen)
+        - GF_AUTH_OAUTH_AUTO_LOGIN=true
+        # Optionally map user groups to Grafana roles
+        - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups, 'Grafana Admin Group') && 'Admin' || contains(groups, 'Grafana Editor Group') && 'Editor' || 'Viewer'
+        
+    networks:
+      - traefik    
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command:
+      - '--config.file=/etc/prometheus/config.yml'
+      - '--log.level=error'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.monitoring == true
+      labels:
+        - "traefik.enable=true"
+        - "traefik.stack.network=traefik"  
+
+        - "traefik.http.routers.prometheus.rule=Host(`prometheus.hartig.es`)"
+        - "traefik.http.routers.prometheus.entrypoints=https"
+        - "traefik.http.routers.prometheus.tls=true"
+
+        - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+        
+        - "traefik.http.routers.prometheus.middlewares=authentik@swarm"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - type: volume
+        source: prometheus-data
+        target: /prometheus
+    networks:
+      - traefik
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    command: -logtostderr -docker_only
+    deploy:
+      mode: global
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    volumes:
+      - type: bind
+        source: /
+        target: /rootfs
+        read_only: true
+      - type: bind
+        source: /var/run
+        target: /var/run
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /sys
+        read_only: true
+      - type: bind
+        source: /var/lib/docker
+        target: /var/lib/docker
+        read_only: true
+      - type: bind
+        source: /dev/disk
+        target: /dev/disk
+        read_only: true                        
+    networks:
+      - traefik
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.0
+    command:
+      - '--path.sysfs=/host/sys'
+      - '--path.procfs=/host/proc'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--no-collector.ipvs'
+    deploy:
+      mode: global
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    volumes:
+      - type: bind
+        source: /
+        target: /rootfs
+        read_only: true
+      - type: bind
+        source: /proc
+        target: /host/proc
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /host/sys
+        read_only: true
+    networks:
+      - traefik
+  loki:
+    image: grafana/loki:3.0.0
+    volumes:
+      - ./loki/config.yml:/mnt/config/loki-config.yml
+    command: -config.file=/mnt/config/loki-config.yml
+    networks:
+      - traefik
+    deploy:
+      mode: replicated
+      replicas: 1
+  alloy:
+    networks:
+      - traefik
+    deploy:
+      mode: global
+      labels:
+        - "traefik.enable=true"
+        - "traefik.stack.network=traefik"  
+
+        - "traefik.http.routers.alloy.rule=Host(`alloy.hartig.es`)"
+        - "traefik.http.routers.alloy.entrypoints=https"
+        - "traefik.http.routers.alloy.tls=true"
+
+        - "traefik.http.services.alloy.loadbalancer.server.port=12345"
+        
+        - "traefik.http.routers.alloy.middlewares=authentik@swarm"
+    image: grafana/alloy:latest
+    volumes:
+      - ./alloy/config.yml:/etc/alloy/config.alloy
+      - ./alloy/logs:/tmp/app-logs/
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    
+  alertmanager:
+    image: prom/alertmanager
+    volumes:
+      - ./alertmanager/:/etc/alertmanager/
+    networks:
+      - traefik
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.monitoring == true
+      labels:
+        - "traefik.enable=true"
+        - "traefik.stack.network=traefik"  
+
+        - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.hartig.es`)"
+        - "traefik.http.routers.alertmanager.entrypoints=https"
+        - "traefik.http.routers.alertmanager.tls=true"
+
+        - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
+        
+        - "traefik.http.routers.alertmanager.middlewares=authentik@swarm"
+
+volumes:
+  grafana-data:
+  prometheus-data:
+
+networks:
+  traefik:
+    external: true

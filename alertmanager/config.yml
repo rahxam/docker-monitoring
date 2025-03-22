@@ -1,0 +1,38 @@
+global:
+  # The default SMTP From header field.
+  smtp_from: paperniffler@gmail.com
+  # The default SMTP smarthost used for sending emails, including port number.
+  # Port number usually is 25, or 587 for SMTP over TLS (sometimes referred to as STARTTLS).
+  # Example: smtp.example.org:587
+  smtp_smarthost: smtp.gmail.com:587
+  # The default hostname to identify to the SMTP server.
+  smtp_hello: smtp.gmail.com
+  # SMTP Auth using CRAM-MD5, LOGIN and PLAIN. If empty, Alertmanager doesn't authenticate to the SMTP server.
+  smtp_auth_username: paperniffler@gmail.com
+  # SMTP Auth using LOGIN and PLAIN.
+  smtp_auth_password: cmdj ccrz hgkj npws
+  # The default SMTP TLS requirement.
+  # Note that Go does not support unencrypted connections to remote SMTP endpoints.
+  smtp_require_tls: true
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'mail'
+receivers:
+  - name: 'mail'
+    email_configs:
+      - smarthost: 'smtp.gmail.com:587'
+        auth_username: 'paperniffler@gmail.com'
+        auth_password: "cmdj ccrz hgkj npws"
+        from: 'paperniffler@gmail.com'
+        to: 'hartigmaximilian@googlemail.com'
+        headers:
+          subject: 'Prometheus Mail Alerts'
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance']
