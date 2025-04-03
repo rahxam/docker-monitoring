@@ -185,6 +185,7 @@ services:
     image: prom/alertmanager
     volumes:
       - ./alertmanager/:/etc/alertmanager/
+      - alertmanager-data:/alertmanager
     networks:
       - traefik
     command:
@@ -214,6 +215,7 @@ services:
 volumes:
   grafana-data:
   prometheus-data:
+  alertmanager-data:
 
 networks:
   traefik:
