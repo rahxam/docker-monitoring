@@ -189,7 +189,7 @@ services:
     command:
       - '--config.file=/etc/alertmanager/config.yml'
       - '--storage.path=/alertmanager'
-      - "--web.external-url=https://alertmanager.hartig.es"
+      - '--web.external-url=https://alertmanager.hartig.es'
     deploy:
       replicas: 1
       restart_policy:

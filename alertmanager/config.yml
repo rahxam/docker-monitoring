@@ -36,3 +36,5 @@ inhibit_rules:
     target_match:
       severity: 'warning'
     equal: ['alertname', 'dev', 'instance']
+web:
+  external-url: https://alertmanager.hartig.es
