@@ -24,6 +24,13 @@ scrape_configs:
         - 'tasks.monitoring-stack_cadvisor'
         type: 'A'
         port: 8080
+  - job_name: 'traefik'
+    scrape_interval: 5s
+    dns_sd_configs:
+    - names:
+      - 'tasks.traefik-stack_reverse-proxy'
+      type: 'A'
+      port: 8080
   - job_name: watchtower
     scrape_interval: 600s
     metrics_path: /v1/metrics
