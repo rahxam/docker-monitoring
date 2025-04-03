@@ -35,6 +35,8 @@ scrape_configs:
     scrape_interval: 600s
     metrics_path: /v1/metrics
     bearer_token: hjdshjdszuzudfdfskjdfsnnfdsdsfzudszufdsfnfdsk
-    static_configs:
-      - targets:
-        - 'watchtower:8080'
+    dns_sd_configs:
+    - names:
+      - 'tasks.watchtower-stack_reverse-watchtower'
+      type: 'A'
+      port: 8080
